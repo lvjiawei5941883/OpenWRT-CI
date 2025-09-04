@@ -40,34 +40,6 @@ UPDATE_PACKAGE() {
 	fi
 }
 
-update_feeds() {
-    # 删除注释行
-    sed -i '/^#/d' "$BUILD_DIR/$FEEDS_CONF"
-
-    # 检查并添加 small-package 源
-    if ! grep -q "small-package" "$BUILD_DIR/$FEEDS_CONF"; then
-        # 确保文件以换行符结尾
-        [ -z "$(tail -c 1 "$BUILD_DIR/$FEEDS_CONF")" ] || echo "" >>"$BUILD_DIR/$FEEDS_CONF"
-        echo "src-git small8 https://github.com/kenzok8/small-package" >>"$BUILD_DIR/$FEEDS_CONF"
-    fi
-
-    # 添加bpf.mk解决更新报错
-    if [ ! -f "$BUILD_DIR/include/bpf.mk" ]; then
-        touch "$BUILD_DIR/include/bpf.mk"
-    fi
-
-    # 切换nss-packages源
-    # if grep -q "nss_packages" "$BUILD_DIR/$FEEDS_CONF"; then
-    #     sed -i '/nss_packages/d' "$BUILD_DIR/$FEEDS_CONF"
-    #     [ -z "$(tail -c 1 "$BUILD_DIR/$FEEDS_CONF")" ] || echo "" >>"$BUILD_DIR/$FEEDS_CONF"
-    #     echo "src-git nss_packages https://github.com/LiBwrt/nss-packages.git" >>"$BUILD_DIR/$FEEDS_CONF"
-    # fi
-
-    # 更新 feeds
-    ./scripts/feeds clean
-    ./scripts/feeds update -a
-}
-
 # 调用示例
 # UPDATE_PACKAGE "OpenAppFilter" "destan19/OpenAppFilter" "master" "" "custom_name1 custom_name2"
 # UPDATE_PACKAGE "open-app-filter" "destan19/OpenAppFilter" "master" "" "luci-app-appfilter oaf" 这样会把原有的open-app-filter，luci-app-appfilter，oaf相关组件删除，不会出现coremark错误。
@@ -99,6 +71,8 @@ UPDATE_PACKAGE "qmodem" "FUjr/QModem" "main"
 UPDATE_PACKAGE "quickfile" "sbwml/luci-app-quickfile" "main"
 UPDATE_PACKAGE "viking" "VIKINGYFY/packages" "main" "" "luci-app-timewol luci-app-wolplus"
 UPDATE_PACKAGE "vnt" "lmq8267/luci-app-vnt" "main"
+
+UPDATE_PACKAGE "lucky" "gdy666/luci-app-lucky" "main"
 
 #更新软件包版本
 UPDATE_VERSION() {
