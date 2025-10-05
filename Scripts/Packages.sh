@@ -73,7 +73,7 @@ UPDATE_PACKAGE "viking" "VIKINGYFY/packages" "main" "" "luci-app-timewol luci-ap
 UPDATE_PACKAGE "vnt" "lmq8267/luci-app-vnt" "main"
 
 UPDATE_PACKAGE "lucky" "gdy666/luci-app-lucky" "main"
-UPDATE_PACKAGE "adguardhome" "rufengsuixing/luci-app-adguardhome" "main"
+UPDATE_PACKAGE "adguardhome" "kenzok8/small-package/luci-app-adguardhome" "main"
 
 #更新软件包版本
 UPDATE_VERSION() {
