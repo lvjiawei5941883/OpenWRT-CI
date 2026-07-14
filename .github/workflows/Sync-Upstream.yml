@@ -67,7 +67,7 @@ jobs:
       - name: Check Diff
         id: diff
         run: |
-          if git diff --quiet main HEAD && git diff --quiet --cached; then
+          if git diff --quiet main && git diff --quiet --cached; then
             echo "no_changes=true" >> $GITHUB_OUTPUT
             echo "已是最新，无需同步"
           else
