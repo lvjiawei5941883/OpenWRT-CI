@@ -5,7 +5,7 @@ name: Sync-Upstream
 
 on:
   schedule:
-    # 每天凌晨 2 点 (UTC+8)
+    # 每天 UTC 18:00（北京时间凌晨 2 点）
     - cron: '0 18 * * *'
   workflow_dispatch:
 
@@ -32,23 +32,37 @@ jobs:
 
       - name: Create Sync Branch
         run: |
-          git checkout -b sync-upstream-$(date +%Y%m%d)
+          TODAY=$(date +%Y%m%d)
+          echo "TODAY=$TODAY" >> $GITHUB_ENV
+          git checkout -b sync-upstream-$TODAY
 
-      - name: Merge Upstream (Protected Files Strategy)
+      - name: Write PR Body Template
         run: |
-          # 策略：用 upstream/main 覆盖所有文件，然后恢复受保护文件
+          mkdir -p .github
+          cat > .github/sync-pr-body.md <<'BODY'
+          #### 自动同步上游 VIKINGYFY/OpenWRT-CI
+
+          老板的定制文件已从 main 恢复：
+          - `.github/workflows/QCA-ALL.yml` — matrix 固定 IPQ60XX-WIFI-YES
+          - `Config/IPQ60XX-WIFI-YES.txt` — 京东云设备列表
+
+          `Scripts/PRIVATE.sh`、`Config/PRIVATE.txt` 因上游不存在不会被覆盖。
+
+          > review 没问题后 squash merge
+          BODY
+
+      - name: Merge Upstream with Protected Files
+        run: |
+          # 先把 upstream/main 的所有文件覆盖进来
           git checkout upstream/main -- .
 
-          # === 受保护的老板定制文件 ===
-          # 恢复 QCA-ALL.yml（只编 IPQ60XX-WIFI-YES）
+          # === 恢复老板的定制文件 ===
+          # QCA-ALL.yml：matrix 固定只编 IPQ60XX-WIFI-YES
           git checkout main -- .github/workflows/QCA-ALL.yml
-          # 恢复设备列表（只保留京东云设备）
+          # IPQ60XX-WIFI-YES.txt：只保留京东云设备
           git checkout main -- Config/IPQ60XX-WIFI-YES.txt
-          # 恢复 Packages.sh（包含老板自己加的包）
-          git checkout main -- Scripts/Packages.sh
 
-          # === 新增的隔离文件不受保护 ===
-          # Scripts/PRIVATE.sh 和 Config/PRIVATE.txt 上游不存在，不会被覆盖
+          # Scripts/PRIVATE.sh 和 Config/PRIVATE.txt 上游不存在，自动保留
 
       - name: Check Diff
         id: diff
@@ -61,22 +75,26 @@ jobs:
             git diff --stat HEAD main
           fi
 
-      - name: Commit & Create PR
+      - name: Commit & Push
         if: steps.diff.outputs.no_changes == 'false'
         run: |
           git add -A
-          git commit -m "sync: 同步上游 VIKINGYFY/OpenWRT-CI
+          git commit -F- <<'COMMIT'
+          sync: 同步上游 VIKINGYFY/OpenWRT-CI
 
-          受保护文件已自动恢复：
-          - .github/workflows/QCA-ALL.yml（只编 IPQ60XX）
+          已自动恢复老板的定制文件：
+          - .github/workflows/QCA-ALL.yml（matrix 固定 IPQ60XX-WIFI-YES）
           - Config/IPQ60XX-WIFI-YES.txt（京东云设备列表）
-          - Scripts/Packages.sh（老板定制包）"
 
-          git push origin sync-upstream-$(date +%Y%m%d) --force
+          Scripts/PRIVATE.sh、Config/PRIVATE.txt 因上游不存在不会被覆盖
+          COMMIT
+          git push origin sync-upstream-$TODAY --force
 
+      - name: Create PR
+        if: steps.diff.outputs.no_changes == 'false'
+        run: |
           gh pr create \
             --title "sync: 同步上游 $(date +%Y-%m-%d)" \
-            --body "自动同步上游 VIKINGYFY/OpenWRT-CI。
-            受保护文件已自动从 main 分支恢复，请 review 后合并。若一切正常可直接 squash merge。" \
+            --body-file .github/sync-pr-body.md \
             --base main \
-            --head sync-upstream-$(date +%Y%m%d) || echo "PR 可能已存在，跳过创建"
+            --head sync-upstream-$TODAY || echo "PR 可能已存在，跳过创建"
