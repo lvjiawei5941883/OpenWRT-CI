@@ -1,8 +1,33 @@
 # SPDX-License-Identifier: MIT
-# 老板的私有内核配置 —— 额外要编译进固件的 CONFIG_ 项放这里
-# 这个文件不会被 Sync-Upstream 覆盖，永远安全
-# Settings.sh 会自动 >> 到 .config 末尾
+# 老板的私有内核配置 —— 所有与上游 GENERAL.txt 的差异都放这里
+# 这个文件不会被 Sync-Upstream 覆盖，Settings.sh 自动 >> 到 .config 末尾
+# make defconfig 以后出现的为准，=n 可覆盖上游的 =y
 
-# 示例格式（去掉前面的 # 取消注释）：
-# CONFIG_PACKAGE_luci-app-xxx=y
-（内容由AI生成，仅供参考）
+# 科学插件关闭（上游开了 homeproxy / gecoosac / samba4）
+CONFIG_PACKAGE_luci-app-homeproxy=n
+CONFIG_PACKAGE_luci-app-nikki=n
+CONFIG_PACKAGE_luci-app-v2raya=n
+CONFIG_PACKAGE_luci-app-passwall=n
+CONFIG_PACKAGE_luci-app-gecoosac=n
+CONFIG_PACKAGE_luci-app-samba4=n
+CONFIG_PACKAGE_luci-app-istorex=n
+
+# 老板额外加的插件
+CONFIG_PACKAGE_luci-app-ttyd=y
+CONFIG_PACKAGE_luci-app-easytier=y
+CONFIG_PACKAGE_luci-app-lucky=y
+CONFIG_PACKAGE_luci-app-smartdns=y
+CONFIG_PACKAGE_luci-app-filemanager=y
+CONFIG_PACKAGE_luci-app-usteer=y
+CONFIG_PACKAGE_luci-app-athena-led=y
+CONFIG_PACKAGE_luci-i18n-athena-led-zh-cn=y
+CONFIG_PACKAGE_luci-app-adguardhome=y
+CONFIG_PACKAGE_luci-app-tailscale=y
+
+# 明确禁用的
+CONFIG_PACKAGE_luci-app-mosdns=n
+CONFIG_PACKAGE_luci-app-dawn=n
+
+# 额外组件
+CONFIG_PACKAGE_easytier=y
+
