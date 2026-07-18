@@ -95,6 +95,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PAT }}
         run: |
+          sleep 5
           gh pr create \
             --title "sync: 同步上游 $(date +%Y-%m-%d)" \
             --body-file .github/sync-pr-body.md \
