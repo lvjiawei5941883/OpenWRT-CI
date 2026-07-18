@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# 同步上游 VIKINGYFY/OpenWRT-CI，保留老板的定制文件
+# 全自动同步上游 VIKINGYFY/OpenWRT-CI，保留老板的定制文件
 
 name: Sync-Upstream
 
@@ -25,75 +25,44 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Add Upstream
+      - name: Fetch Upstream
         run: |
           git remote add upstream https://github.com/VIKINGYFY/OpenWRT-CI.git || true
           git fetch upstream main
 
-      - name: Create Sync Branch
+      - name: Check if Sync Needed
+        id: check
         run: |
-          TODAY=$(date +%Y%m%d)
-          echo "TODAY=$TODAY" >> $GITHUB_ENV
-          git checkout -b sync-upstream-$TODAY
-
-      - name: Merge Upstream with Protected Files
-        run: |
-          # 先把 upstream/main 的所有文件覆盖进来
-          git checkout upstream/main -- .
-
-          # === 恢复老板的定制文件 ===
-          # QCA-ALL.yml：matrix 固定只编 IPQ60XX-WIFI-YES
-          git checkout main -- .github/workflows/QCA-ALL.yml
-          # IPQ60XX-WIFI-YES.txt：只保留京东云设备
-          git checkout main -- Config/IPQ60XX-WIFI-YES.txt
-
-          # Scripts/PRIVATE.sh 和 Config/PRIVATE.txt 上游不存在，自动保留
-
-      - name: Check Diff
-        id: diff
-        run: |
-          git add -A
-          if git diff --cached --quiet main; then
-            echo "no_changes=true" >> $GITHUB_OUTPUT
+          BEHIND=$(git rev-list --count main..upstream/main)
+          echo "behind=$BEHIND" >> $GITHUB_OUTPUT
+          if [ "$BEHIND" -eq 0 ]; then
             echo "已是最新，无需同步"
           else
-            echo "no_changes=false" >> $GITHUB_OUTPUT
-            git diff --cached --stat main
+            echo "落后 $BEHIND 个提交，开始同步"
           fi
 
-      - name: Commit & Push
-        if: steps.diff.outputs.no_changes == 'false'
+      - name: Save Protected Files
+        if: steps.check.outputs.behind != '0'
         run: |
-          git commit -F- <<'COMMIT'
-          sync: 同步上游 VIKINGYFY/OpenWRT-CI
+          cp .github/workflows/QCA-ALL.yml /tmp/QCA-ALL.yml
+          cp Config/IPQ60XX-WIFI-YES.txt /tmp/IPQ60XX-WIFI-YES.txt
 
-          已自动恢复老板的定制文件：
-          - .github/workflows/QCA-ALL.yml（matrix 固定 IPQ60XX-WIFI-YES）
-          - Config/IPQ60XX-WIFI-YES.txt（京东云设备列表）
-
-          Scripts/PRIVATE.sh、Config/PRIVATE.txt 因上游不存在不会被覆盖
-          COMMIT
-          git push origin sync-upstream-$TODAY --force
-
-      - name: Create PR
-        if: steps.diff.outputs.no_changes == 'false'
+      - name: Merge Upstream
+        if: steps.check.outputs.behind != '0'
         run: |
-          TITLE="sync: 同步上游 $(date +%Y-%m-%d)"
-          BODY=$(cat <<'EOF'
-          #### 自动同步上游 VIKINGYFY/OpenWRT-CI
+          git merge upstream/main --no-edit -X theirs
 
-          老板的定制文件已从 main 恢复：
-          - .github/workflows/QCA-ALL.yml — matrix 固定 IPQ60XX-WIFI-YES
-          - Config/IPQ60XX-WIFI-YES.txt — 京东云设备列表
+      - name: Restore Protected Files
+        if: steps.check.outputs.behind != '0'
+        run: |
+          cp /tmp/QCA-ALL.yml .github/workflows/QCA-ALL.yml
+          cp /tmp/IPQ60XX-WIFI-YES.txt Config/IPQ60XX-WIFI-YES.txt
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "sync: 恢复老板的定制文件"
+          fi
 
-          Scripts/PRIVATE.sh、Config/PRIVATE.txt 因上游不存在不会被覆盖。
-
-          > review 没问题后 squash merge
-          EOF
-          )
-          curl -s -X POST \
-            -H "Authorization: token ${{ secrets.PAT }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/lvjiawei5941883/OpenWRT-CI/pulls \
-            -d "$(jq -n --arg title "$TITLE" --arg body "$BODY" --arg head "sync-upstream-$TODAY" --arg base "main" \
-              '{title: $title, body: $body, head: $head, base: $base}')"
+      - name: Push
+        if: steps.check.outputs.behind != '0'
+        run: |
+          git push origin main
