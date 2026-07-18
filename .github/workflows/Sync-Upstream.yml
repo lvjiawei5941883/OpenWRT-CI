@@ -93,7 +93,7 @@ jobs:
       - name: Create PR
         if: steps.diff.outputs.no_changes == 'false'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.PAT }}
         run: |
           gh pr create \
             --title "sync: 同步上游 $(date +%Y-%m-%d)" \
