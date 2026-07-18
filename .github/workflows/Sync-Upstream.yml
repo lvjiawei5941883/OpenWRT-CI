@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -43,10 +43,10 @@ jobs:
           #### 自动同步上游 VIKINGYFY/OpenWRT-CI
 
           老板的定制文件已从 main 恢复：
-          - `.github/workflows/QCA-ALL.yml` — matrix 固定 IPQ60XX-WIFI-YES
-          - `Config/IPQ60XX-WIFI-YES.txt` — 京东云设备列表
+          - .github/workflows/QCA-ALL.yml — matrix 固定 IPQ60XX-WIFI-YES
+          - Config/IPQ60XX-WIFI-YES.txt — 京东云设备列表
 
-          `Scripts/PRIVATE.sh`、`Config/PRIVATE.txt` 因上游不存在不会被覆盖。
+          Scripts/PRIVATE.sh、Config/PRIVATE.txt 因上游不存在不会被覆盖。
 
           > review 没问题后 squash merge
           BODY
@@ -67,18 +67,18 @@ jobs:
       - name: Check Diff
         id: diff
         run: |
-          if git diff --quiet main && git diff --quiet --cached; then
+          git add -A
+          if git diff --cached --quiet main; then
             echo "no_changes=true" >> $GITHUB_OUTPUT
             echo "已是最新，无需同步"
           else
             echo "no_changes=false" >> $GITHUB_OUTPUT
-            git diff --stat HEAD main
+            git diff --cached --stat main
           fi
 
       - name: Commit & Push
         if: steps.diff.outputs.no_changes == 'false'
         run: |
-          git add -A
           git commit -F- <<'COMMIT'
           sync: 同步上游 VIKINGYFY/OpenWRT-CI
 
