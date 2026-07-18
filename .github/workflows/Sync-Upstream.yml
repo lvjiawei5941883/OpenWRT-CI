@@ -36,21 +36,6 @@ jobs:
           echo "TODAY=$TODAY" >> $GITHUB_ENV
           git checkout -b sync-upstream-$TODAY
 
-      - name: Write PR Body Template
-        run: |
-          mkdir -p .github
-          cat > .github/sync-pr-body.md <<'BODY'
-          #### 自动同步上游 VIKINGYFY/OpenWRT-CI
-
-          老板的定制文件已从 main 恢复：
-          - .github/workflows/QCA-ALL.yml — matrix 固定 IPQ60XX-WIFI-YES
-          - Config/IPQ60XX-WIFI-YES.txt — 京东云设备列表
-
-          Scripts/PRIVATE.sh、Config/PRIVATE.txt 因上游不存在不会被覆盖。
-
-          > review 没问题后 squash merge
-          BODY
-
       - name: Merge Upstream with Protected Files
         run: |
           # 先把 upstream/main 的所有文件覆盖进来
@@ -92,12 +77,23 @@ jobs:
 
       - name: Create PR
         if: steps.diff.outputs.no_changes == 'false'
-        env:
-          GH_TOKEN: ${{ secrets.PAT }}
         run: |
-          sleep 5
-          gh pr create \
-            --title "sync: 同步上游 $(date +%Y-%m-%d)" \
-            --body-file .github/sync-pr-body.md \
-            --base main \
-            --head sync-upstream-$TODAY
+          TITLE="sync: 同步上游 $(date +%Y-%m-%d)"
+          BODY=$(cat <<'EOF'
+          #### 自动同步上游 VIKINGYFY/OpenWRT-CI
+
+          老板的定制文件已从 main 恢复：
+          - .github/workflows/QCA-ALL.yml — matrix 固定 IPQ60XX-WIFI-YES
+          - Config/IPQ60XX-WIFI-YES.txt — 京东云设备列表
+
+          Scripts/PRIVATE.sh、Config/PRIVATE.txt 因上游不存在不会被覆盖。
+
+          > review 没问题后 squash merge
+          EOF
+          )
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/lvjiawei5941883/OpenWRT-CI/pulls \
+            -d "$(jq -n --arg title "$TITLE" --arg body "$BODY" --arg head "sync-upstream-$TODAY" --arg base "main" \
+              '{title: $title, body: $body, head: $head, base: $base}')"
