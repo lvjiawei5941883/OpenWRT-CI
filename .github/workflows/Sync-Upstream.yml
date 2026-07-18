@@ -92,9 +92,11 @@ jobs:
 
       - name: Create PR
         if: steps.diff.outputs.no_changes == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh pr create \
             --title "sync: 同步上游 $(date +%Y-%m-%d)" \
             --body-file .github/sync-pr-body.md \
             --base main \
-            --head sync-upstream-$TODAY || echo "PR 可能已存在，跳过创建"
+            --head sync-upstream-$TODAY
