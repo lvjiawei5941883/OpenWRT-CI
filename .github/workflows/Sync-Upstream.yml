@@ -1,0 +1,130 @@
+# SPDX-License-Identifier: MIT
+# 全自动同步上游 VIKINGYFY/OpenWRT-CI，merge 后 sed 精准恢复定制
+
+name: Sync-Upstream
+
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch Upstream
+        run: |
+          git remote add upstream https://github.com/VIKINGYFY/OpenWRT-CI.git || true
+          git fetch upstream main
+
+      - name: Check if Sync Needed
+        id: check
+        run: |
+          BEHIND=$(git rev-list --count main..upstream/main)
+          echo "behind=$BEHIND" >> $GITHUB_OUTPUT
+          if [ "$BEHIND" -eq 0 ]; then
+            echo "已是最新，无需同步"
+          else
+            echo "落后 $BEHIND 个提交，开始同步"
+          fi
+
+      - name: Merge Upstream
+        if: steps.check.outputs.behind != '0'
+        run: |
+          git merge upstream/main --no-edit -X theirs
+
+      - name: Apply Custom Patches
+        if: steps.check.outputs.behind != '0'
+        run: |
+          # ============================================================
+          # QCA-ALL.yml：只保留 IPQ60XX-WIFI-YES 编译
+          # ============================================================
+          sed -i 's/CONFIG: \[.*\]/CONFIG: [IPQ60XX-WIFI-YES]/' .github/workflows/QCA-ALL.yml
+
+          # ============================================================
+          # IPQ60XX-WIFI-YES.txt：只保留京东云2个设备（直接覆写）
+          # ============================================================
+          cat > Config/IPQ60XX-WIFI-YES.txt << 'DEVICE_EOF'
+#设备平台
+CONFIG_TARGET_qualcommax=y
+CONFIG_TARGET_qualcommax_ipq60xx=y
+#设备列表
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-cs-02=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-ss-01=y
+DEVICE_EOF
+
+          # ============================================================
+          # GENERAL.txt：精准修改（替换值 + 增删行）
+          # ============================================================
+          # --- 值替换 ---
+          sed -i 's/^CONFIG_PACKAGE_luci-app-homeproxy=y/CONFIG_PACKAGE_luci-app-homeproxy=n/' Config/GENERAL.txt
+          sed -i 's/^CONFIG_PACKAGE_luci-app-gecoosac=y/CONFIG_PACKAGE_luci-app-gecoosac=n/' Config/GENERAL.txt
+          sed -i 's/^CONFIG_PACKAGE_luci-app-samba4=y/CONFIG_PACKAGE_luci-app-samba4=n/' Config/GENERAL.txt
+
+
+          # --- 新增插件行（在 homeproxy 行后） ---
+          sed -i '/^CONFIG_PACKAGE_luci-app-homeproxy=n$/a\
+CONFIG_PACKAGE_luci-app-nikki=n\
+CONFIG_PACKAGE_luci-app-v2raya=n\
+CONFIG_PACKAGE_luci-app-passwall=n' Config/GENERAL.txt
+
+          # --- 新增插件行（在 wolultra 行后） ---
+          sed -i '/^CONFIG_PACKAGE_luci-app-wolultra=y$/a\
+CONFIG_PACKAGE_luci-app-diskman=y\
+CONFIG_PACKAGE_luci-app-tailscale=y\
+CONFIG_PACKAGE_luci-app-easytier=y\
+CONFIG_PACKAGE_luci-app-lucky=y\
+CONFIG_PACKAGE_luci-app-mosdns=n\
+CONFIG_PACKAGE_luci-app-smartdns=y\
+CONFIG_PACKAGE_luci-app-filemanager=y\
+CONFIG_PACKAGE_luci-app-usteer=y\
+CONFIG_PACKAGE_luci-app-dawn=n\
+CONFIG_PACKAGE_luci-app-athena-led=y\
+CONFIG_PACKAGE_luci-i18n-athena-led-zh-cn=y\
+CONFIG_PACKAGE_luci-app-adguardhome=y' Config/GENERAL.txt
+
+          # --- 末尾追加 ---
+          if ! grep -q '^CONFIG_PACKAGE_easytier=y$' Config/GENERAL.txt; then
+            echo 'CONFIG_PACKAGE_easytier=y' >> Config/GENERAL.txt
+          fi
+
+          # ============================================================
+          # Packages.sh： 追加插件 + 修复参数
+          # ============================================================
+
+
+          # 末尾追加 lucky 和 adguardhome
+          if ! grep -q 'lucky' Scripts/Packages.sh; then
+            sed -i '/^#引入私有扩展脚本/i\
+UPDATE_PACKAGE "lucky" "gdy666/luci-app-lucky" "main"' Scripts/Packages.sh
+          fi
+          if ! grep -q 'adguardhome' Scripts/Packages.sh; then
+            sed -i '/^#引入私有扩展脚本/i\
+UPDATE_PACKAGE "adguardhome" "TanZhiwen2001/luci-app-adguardhome" "main"' Scripts/Packages.sh
+          fi
+
+
+          # 提交所有改动
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "sync: 恢复老板的定制"
+          fi
+
+      - name: Push
+        if: steps.check.outputs.behind != '0'
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
+          git -c http.extraheader= push origin main
