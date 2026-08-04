@@ -47,7 +47,6 @@ jobs:
           git merge upstream/main --no-edit -X theirs
 
       - name: Apply Custom Patches
-        if: steps.check.outputs.behind != '0'
         run: |
           # ============================================================
           # QCA-ALL.yml：只保留 IPQ60XX-WIFI-YES 编译
