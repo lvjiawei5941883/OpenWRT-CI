@@ -110,7 +110,6 @@ jobs:
           fi
 
       - name: Push
-        if: steps.check.outputs.behind != '0'
         run: |
           git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
           git -c http.extraheader= push origin main
