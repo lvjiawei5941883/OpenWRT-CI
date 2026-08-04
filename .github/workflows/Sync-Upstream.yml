@@ -77,35 +77,34 @@ jobs:
           sed -i 's/^CONFIG_PACKAGE_luci-app-gecoosac=y/CONFIG_PACKAGE_luci-app-gecoosac=n/' Config/GENERAL.txt
           sed -i 's/^CONFIG_PACKAGE_luci-app-samba4=y/CONFIG_PACKAGE_luci-app-samba4=n/' Config/GENERAL.txt
 
-          # 用 awk 一次性插入，避免链式 sed 重复追加
-          awk -i inplace '
-            /^CONFIG_PACKAGE_luci-app-homeproxy=n$/ && !seen["nikki"]++ {
-              print; print "CONFIG_PACKAGE_luci-app-nikki=n"; next
-            }
-            /^CONFIG_PACKAGE_luci-app-wolultra=y$/ && !seen["diskman"]++ {
-              print
-              print "CONFIG_PACKAGE_luci-app-diskman=y"
-              print "CONFIG_PACKAGE_luci-app-tailscale=y"
-              print "CONFIG_PACKAGE_luci-app-easytier=y"
-              print "CONFIG_PACKAGE_luci-app-lucky=y"
-              print "CONFIG_PACKAGE_luci-app-mosdns=n"
-              print "CONFIG_PACKAGE_luci-app-smartdns=y"
-              print "CONFIG_PACKAGE_luci-app-filemanager=y"
-              print "CONFIG_PACKAGE_luci-app-usteer=y"
-              print "CONFIG_PACKAGE_luci-app-dawn=n"
-              print "CONFIG_PACKAGE_luci-app-athena-led=y"
-              print "CONFIG_PACKAGE_luci-i18n-athena-led-zh-cn=y"
-              print "CONFIG_PACKAGE_luci-app-adguardhome=y"
-              next
-            }
-            { print }
-          ' Config/GENERAL.txt
-
-          # 补充缺失的单行（幂等）
+          # 幂等：已存在则跳过
+          grep -q '^CONFIG_PACKAGE_luci-app-nikki=n$' Config/GENERAL.txt || \
+            sed -i '/^CONFIG_PACKAGE_luci-app-homeproxy=n$/a CONFIG_PACKAGE_luci-app-nikki=n' Config/GENERAL.txt
           grep -q '^CONFIG_PACKAGE_luci-app-v2raya=n$' Config/GENERAL.txt || \
             sed -i '/^CONFIG_PACKAGE_luci-app-nikki=n$/a CONFIG_PACKAGE_luci-app-v2raya=n' Config/GENERAL.txt
           grep -q '^CONFIG_PACKAGE_luci-app-passwall=n$' Config/GENERAL.txt || \
             sed -i '/^CONFIG_PACKAGE_luci-app-v2raya=n$/a CONFIG_PACKAGE_luci-app-passwall=n' Config/GENERAL.txt
+
+          grep -q '^CONFIG_PACKAGE_luci-app-diskman=y$' Config/GENERAL.txt || \
+            awk -i inplace '
+              /^CONFIG_PACKAGE_luci-app-wolultra=y$/ {
+                print
+                print "CONFIG_PACKAGE_luci-app-diskman=y"
+                print "CONFIG_PACKAGE_luci-app-tailscale=y"
+                print "CONFIG_PACKAGE_luci-app-easytier=y"
+                print "CONFIG_PACKAGE_luci-app-lucky=y"
+                print "CONFIG_PACKAGE_luci-app-mosdns=n"
+                print "CONFIG_PACKAGE_luci-app-smartdns=y"
+                print "CONFIG_PACKAGE_luci-app-filemanager=y"
+                print "CONFIG_PACKAGE_luci-app-usteer=y"
+                print "CONFIG_PACKAGE_luci-app-dawn=n"
+                print "CONFIG_PACKAGE_luci-app-athena-led=y"
+                print "CONFIG_PACKAGE_luci-i18n-athena-led-zh-cn=y"
+                print "CONFIG_PACKAGE_luci-app-adguardhome=y"
+                next
+              }
+              { print }
+            ' Config/GENERAL.txt
 
           if ! grep -q '^CONFIG_PACKAGE_easytier=y$' Config/GENERAL.txt; then
             echo 'CONFIG_PACKAGE_easytier=y' >> Config/GENERAL.txt
