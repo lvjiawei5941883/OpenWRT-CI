@@ -55,67 +55,54 @@ jobs:
           sed -i 's/CONFIG: \[.*\]/CONFIG: [IPQ60XX-WIFI-YES]/' .github/workflows/QCA-ALL.yml
 
           # ============================================================
-          # IPQ60XX-WIFI-YES.txt：只保留京东云2个设备（直接覆写）
+          # IPQ60XX-WIFI-YES.txt：只保留京东云2个设备
           # ============================================================
-          cat > Config/IPQ60XX-WIFI-YES.txt << 'DEVICE_EOF'
-#设备平台
-CONFIG_TARGET_qualcommax=y
-CONFIG_TARGET_qualcommax_ipq60xx=y
-#设备列表
-CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-cs-02=y
-CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-ss-01=y
-DEVICE_EOF
+          printf '%s\n' \
+            '#设备平台' \
+            'CONFIG_TARGET_qualcommax=y' \
+            'CONFIG_TARGET_qualcommax_ipq60xx=y' \
+            '#设备列表' \
+            'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-cs-02=y' \
+            'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-ss-01=y' \
+            > Config/IPQ60XX-WIFI-YES.txt
 
           # ============================================================
-          # GENERAL.txt：精准修改（替换值 + 增删行）
+          # GENERAL.txt：精准修改
           # ============================================================
-          # --- 值替换 ---
           sed -i 's/^CONFIG_PACKAGE_luci-app-homeproxy=y/CONFIG_PACKAGE_luci-app-homeproxy=n/' Config/GENERAL.txt
           sed -i 's/^CONFIG_PACKAGE_luci-app-gecoosac=y/CONFIG_PACKAGE_luci-app-gecoosac=n/' Config/GENERAL.txt
           sed -i 's/^CONFIG_PACKAGE_luci-app-samba4=y/CONFIG_PACKAGE_luci-app-samba4=n/' Config/GENERAL.txt
 
+          sed -i '/^CONFIG_PACKAGE_luci-app-homeproxy=n$/a CONFIG_PACKAGE_luci-app-nikki=n' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-nikki=n$/a CONFIG_PACKAGE_luci-app-v2raya=n' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-v2raya=n$/a CONFIG_PACKAGE_luci-app-passwall=n' Config/GENERAL.txt
 
-          # --- 新增插件行（在 homeproxy 行后） ---
-          sed -i '/^CONFIG_PACKAGE_luci-app-homeproxy=n$/a\
-CONFIG_PACKAGE_luci-app-nikki=n\
-CONFIG_PACKAGE_luci-app-v2raya=n\
-CONFIG_PACKAGE_luci-app-passwall=n' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-wolultra=y$/a CONFIG_PACKAGE_luci-app-diskman=y' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-diskman=y$/a CONFIG_PACKAGE_luci-app-tailscale=y' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-tailscale=y$/a CONFIG_PACKAGE_luci-app-easytier=y' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-easytier=y$/a CONFIG_PACKAGE_luci-app-lucky=y' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-lucky=y$/a CONFIG_PACKAGE_luci-app-mosdns=n' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-mosdns=n$/a CONFIG_PACKAGE_luci-app-smartdns=y' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-smartdns=y$/a CONFIG_PACKAGE_luci-app-filemanager=y' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-filemanager=y$/a CONFIG_PACKAGE_luci-app-usteer=y' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-usteer=y$/a CONFIG_PACKAGE_luci-app-dawn=n' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-dawn=n$/a CONFIG_PACKAGE_luci-app-athena-led=y' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-app-athena-led=y$/a CONFIG_PACKAGE_luci-i18n-athena-led-zh-cn=y' Config/GENERAL.txt
+          sed -i '/^CONFIG_PACKAGE_luci-i18n-athena-led-zh-cn=y$/a CONFIG_PACKAGE_luci-app-adguardhome=y' Config/GENERAL.txt
 
-          # --- 新增插件行（在 wolultra 行后） ---
-          sed -i '/^CONFIG_PACKAGE_luci-app-wolultra=y$/a\
-CONFIG_PACKAGE_luci-app-diskman=y\
-CONFIG_PACKAGE_luci-app-tailscale=y\
-CONFIG_PACKAGE_luci-app-easytier=y\
-CONFIG_PACKAGE_luci-app-lucky=y\
-CONFIG_PACKAGE_luci-app-mosdns=n\
-CONFIG_PACKAGE_luci-app-smartdns=y\
-CONFIG_PACKAGE_luci-app-filemanager=y\
-CONFIG_PACKAGE_luci-app-usteer=y\
-CONFIG_PACKAGE_luci-app-dawn=n\
-CONFIG_PACKAGE_luci-app-athena-led=y\
-CONFIG_PACKAGE_luci-i18n-athena-led-zh-cn=y\
-CONFIG_PACKAGE_luci-app-adguardhome=y' Config/GENERAL.txt
-
-          # --- 末尾追加 ---
           if ! grep -q '^CONFIG_PACKAGE_easytier=y$' Config/GENERAL.txt; then
             echo 'CONFIG_PACKAGE_easytier=y' >> Config/GENERAL.txt
           fi
 
           # ============================================================
-          # Packages.sh： 追加插件 + 修复参数
+          # Packages.sh：追加插件
           # ============================================================
-
-
-          # 末尾追加 lucky 和 adguardhome
           if ! grep -q 'lucky' Scripts/Packages.sh; then
-            sed -i '/^#引入私有扩展脚本/i\
-UPDATE_PACKAGE "lucky" "gdy666/luci-app-lucky" "main"' Scripts/Packages.sh
+            sed -i '/^UPDATE_PACKAGE "vnt"/a UPDATE_PACKAGE "lucky" "gdy666/luci-app-lucky" "main"' Scripts/Packages.sh
           fi
           if ! grep -q 'adguardhome' Scripts/Packages.sh; then
-            sed -i '/^#引入私有扩展脚本/i\
-UPDATE_PACKAGE "adguardhome" "TanZhiwen2001/luci-app-adguardhome" "main"' Scripts/Packages.sh
+            sed -i '/^UPDATE_PACKAGE "lucky"/a UPDATE_PACKAGE "adguardhome" "TanZhiwen2001/luci-app-adguardhome" "main"' Scripts/Packages.sh
           fi
-
 
           # 提交所有改动
           git add -A
