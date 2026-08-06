@@ -56,7 +56,8 @@ jobs:
           # ============================================================
           # WRT-CORE.yml：修复上游包名错误
           # ============================================================
-          sed -i 's/\blibunistring\b/libunistring-dev/g' .github/workflows/WRT-CORE.yml
+          grep -q 'libunistring-dev' .github/workflows/WRT-CORE.yml || \
+            sed -i 's/\blibunistring\b/libunistring-dev/g' .github/workflows/WRT-CORE.yml
 
           # ============================================================
           # IPQ60XX-WIFI-YES.txt：只保留京东云2个设备
