@@ -59,6 +59,10 @@ jobs:
           grep -q 'libunistring-dev' .github/workflows/WRT-CORE.yml || \
             sed -i 's/\blibunistring\b/libunistring-dev/g' .github/workflows/WRT-CORE.yml
 
+          # WRT-CORE.yml：禁用缓存自毁，保留旧缓存以利用 restore-keys 回退
+          grep -q '#gh cache delete' .github/workflows/WRT-CORE.yml || \
+            sed -i 's/gh cache delete/#gh cache delete/' .github/workflows/WRT-CORE.yml
+
           # ============================================================
           # IPQ60XX-WIFI-YES.txt：只保留京东云2个设备
           # ============================================================
