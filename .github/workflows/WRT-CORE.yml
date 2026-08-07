@@ -142,7 +142,7 @@ jobs:
           if ${{steps.check-cache.outputs.cache-hit != 'true'}}; then
             CACHE_LIST=$(gh cache list --key "$WRT_CONFIG-$WRT_INFO" | cut -f 1)
             for CACHE_KEY in $CACHE_LIST; do
-              gh cache delete $CACHE_KEY
+              #gh cache delete $CACHE_KEY
             done
 
             echo "caches cleanup done!"
