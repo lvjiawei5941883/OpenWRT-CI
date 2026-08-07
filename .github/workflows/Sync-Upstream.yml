@@ -59,9 +59,14 @@ jobs:
           grep -q 'libunistring-dev' .github/workflows/WRT-CORE.yml || \
             sed -i 's/\blibunistring\b/libunistring-dev/g' .github/workflows/WRT-CORE.yml
 
-          # WRT-CORE.yml：禁用缓存自毁，保留旧缓存以利用 restore-keys 回退
-          grep -q '#gh cache delete' .github/workflows/WRT-CORE.yml || \
-            sed -i 's/gh cache delete/#gh cache delete/' .github/workflows/WRT-CORE.yml
+          # WRT-CORE.yml：删除 gh cache delete 整个 if/fi 块，避免 for/done 空循环语法错误
+          # 同时保留旧缓存以利用 restore-keys 回退
+          if grep -q 'caches cleanup' .github/workflows/WRT-CORE.yml; then
+            sed -i '/if \${{steps\.check-cache\.outputs\.cache-hit/,/^          fi$/{d}' .github/workflows/WRT-CORE.yml
+            echo "cache cleanup block removed"
+          else
+            echo "cache cleanup block already removed, skip"
+          fi
 
           # ============================================================
           # IPQ60XX-WIFI-YES.txt：只保留京东云2个设备
