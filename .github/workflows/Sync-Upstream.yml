@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# 全自动同步上游 VIKINGYFY/OpenWRT-CI，merge 后 sed 精准恢复定制
+# 全自动同步上游 VIKINGYFY/OpenWRT-CI，merge 后精准恢复定制
 
 name: Sync-Upstream
 
@@ -61,24 +61,36 @@ jobs:
 
           # WRT-CORE.yml：删除 gh cache delete 整个 if/fi 块，避免 for/done 空循环语法错误
           # 同时保留旧缓存以利用 restore-keys 回退
-          if grep -q 'caches cleanup' .github/workflows/WRT-CORE.yml; then
-            sed -i '/if \${{steps\.check-cache\.outputs\.cache-hit/,/^          fi$/{d}' .github/workflows/WRT-CORE.yml
-            echo "cache cleanup block removed"
-          else
-            echo "cache cleanup block already removed, skip"
-          fi
+          python3 -c "
+          import re
+          with open('.github/workflows/WRT-CORE.yml', 'r') as f:
+              content = f.read()
+          # 删除包含 'caches cleanup' 注释的 if/fi 块
+          content = re.sub(
+              r'[ \t]*if\s+\$\{\{ ?steps\.check-cache\.outputs\.cache-hit.*?\n[ \t]*fi[ \t]*\n',
+              '',
+              content,
+              flags=re.DOTALL
+          )
+          if 'caches cleanup' not in content:
+              print('cache cleanup block removed')
+          else:
+              print('WARNING: cache cleanup block may still exist')
+          with open('.github/workflows/WRT-CORE.yml', 'w') as f:
+              f.write(content)
+          "
 
           # ============================================================
           # IPQ60XX-WIFI-YES.txt：只保留京东云2个设备
           # ============================================================
-          printf '%s\n' \
-            '#设备平台' \
-            'CONFIG_TARGET_qualcommax=y' \
-            'CONFIG_TARGET_qualcommax_ipq60xx=y' \
-            '#设备列表' \
-            'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-cs-02=y' \
-            'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-ss-01=y' \
-            > Config/IPQ60XX-WIFI-YES.txt
+          cat > Config/IPQ60XX-WIFI-YES.txt << 'EOF'
+          #设备平台
+          CONFIG_TARGET_qualcommax=y
+          CONFIG_TARGET_qualcommax_ipq60xx=y
+          #设备列表
+          CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-cs-02=y
+          CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-ss-01=y
+          EOF
 
           # ============================================================
           # GENERAL.txt：精准修改
@@ -95,26 +107,9 @@ jobs:
           grep -q '^CONFIG_PACKAGE_luci-app-passwall=n$' Config/GENERAL.txt || \
             sed -i '/^CONFIG_PACKAGE_luci-app-v2raya=n$/a CONFIG_PACKAGE_luci-app-passwall=n' Config/GENERAL.txt
 
-          grep -q '^CONFIG_PACKAGE_luci-app-diskman=y$' Config/GENERAL.txt || \
-            awk -i inplace '
-              /^CONFIG_PACKAGE_luci-app-wolultra=y$/ {
-                print
-                print "CONFIG_PACKAGE_luci-app-diskman=y"
-                print "CONFIG_PACKAGE_luci-app-tailscale=y"
-                print "CONFIG_PACKAGE_luci-app-easytier=y"
-                print "CONFIG_PACKAGE_luci-app-lucky=y"
-                print "CONFIG_PACKAGE_luci-app-mosdns=n"
-                print "CONFIG_PACKAGE_luci-app-smartdns=y"
-                print "CONFIG_PACKAGE_luci-app-filemanager=y"
-                print "CONFIG_PACKAGE_luci-app-usteer=y"
-                print "CONFIG_PACKAGE_luci-app-dawn=n"
-                print "CONFIG_PACKAGE_luci-app-athena-led=y"
-                print "CONFIG_PACKAGE_luci-i18n-athena-led-zh-cn=y"
-                print "CONFIG_PACKAGE_luci-app-adguardhome=y"
-                next
-              }
-              { print }
-            ' Config/GENERAL.txt
+          if ! grep -q '^CONFIG_PACKAGE_luci-app-diskman=y$' Config/GENERAL.txt; then
+            sed -i '/^CONFIG_PACKAGE_luci-app-wolultra=y$/a CONFIG_PACKAGE_luci-app-diskman=y\nCONFIG_PACKAGE_luci-app-tailscale=y\nCONFIG_PACKAGE_luci-app-easytier=y\nCONFIG_PACKAGE_luci-app-lucky=y\nCONFIG_PACKAGE_luci-app-mosdns=n\nCONFIG_PACKAGE_luci-app-smartdns=y\nCONFIG_PACKAGE_luci-app-filemanager=y\nCONFIG_PACKAGE_luci-app-usteer=y\nCONFIG_PACKAGE_luci-app-dawn=n\nCONFIG_PACKAGE_luci-app-athena-led=y\nCONFIG_PACKAGE_luci-i18n-athena-led-zh-cn=y\nCONFIG_PACKAGE_luci-app-adguardhome=y' Config/GENERAL.txt
+          fi
 
           if ! grep -q '^CONFIG_PACKAGE_easytier=y$' Config/GENERAL.txt; then
             echo 'CONFIG_PACKAGE_easytier=y' >> Config/GENERAL.txt
