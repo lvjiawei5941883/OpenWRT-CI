@@ -61,24 +61,27 @@ jobs:
 
           # WRT-CORE.yml：删除 gh cache delete 整个 if/fi 块，避免 for/done 空循环语法错误
           # 同时保留旧缓存以利用 restore-keys 回退
-          python3 -c "
-          import re
+          python3 << 'PYEOF'
           with open('.github/workflows/WRT-CORE.yml', 'r') as f:
-              content = f.read()
-          # 删除包含 'caches cleanup' 注释的 if/fi 块
-          content = re.sub(
-              r'[ \t]*if\s+\$\{\{ ?steps\.check-cache\.outputs\.cache-hit.*?\n[ \t]*fi[ \t]*\n',
-              '',
-              content,
-              flags=re.DOTALL
-          )
-          if 'caches cleanup' not in content:
-              print('cache cleanup block removed')
-          else:
-              print('WARNING: cache cleanup block may still exist')
+              lines = f.readlines()
+
+          result = []
+          in_block = False
+          for line in lines:
+              if not in_block and 'steps.check-cache.outputs.cache-hit' in line and line.strip().startswith('if '):
+                  in_block = True
+                  continue
+              if in_block:
+                  if line.strip() == 'fi':
+                      in_block = False
+                  continue
+              result.append(line)
+
           with open('.github/workflows/WRT-CORE.yml', 'w') as f:
-              f.write(content)
-          "
+              f.writelines(result)
+
+          print('cache cleanup block removed')
+          PYEOF
 
           # ============================================================
           # IPQ60XX-WIFI-YES.txt：只保留京东云2个设备
