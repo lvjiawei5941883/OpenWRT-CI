@@ -82,6 +82,7 @@ UPDATE_PACKAGE "viking" "VIKINGYFY/packages" "main" "" "axonhub gecoosac sing-bo
 UPDATE_PACKAGE "vnt" "lmq8267/luci-app-vnt" "main"
 UPDATE_PACKAGE "lucky" "gdy666/luci-app-lucky" "main"
 UPDATE_PACKAGE "adguardhome" "TanZhiwen2001/luci-app-adguardhome" "main"
+UPDATE_PACKAGE "oxidns" "svenshi/luci-app-oxidns" "main"
 
 #更新软件包版本
 UPDATE_VERSION() {
