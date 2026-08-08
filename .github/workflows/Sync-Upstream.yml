@@ -127,6 +127,15 @@ jobs:
           if ! grep -q 'adguardhome' Scripts/Packages.sh; then
             sed -i '/^UPDATE_PACKAGE "lucky"/a UPDATE_PACKAGE "adguardhome" "TanZhiwen2001/luci-app-adguardhome" "main"' Scripts/Packages.sh
           fi
+          if ! grep -q 'oxidns' Scripts/Packages.sh; then
+            sed -i '/^UPDATE_PACKAGE "adguardhome"/a UPDATE_PACKAGE "oxidns" "svenshi/luci-app-oxidns" "main"' Scripts/Packages.sh
+          fi
+
+          # ============================================================
+          # GENERAL.txt：追加 oxidns 编译配置
+          # ============================================================
+          grep -q '^CONFIG_PACKAGE_luci-app-oxidns=y$' Config/GENERAL.txt || \
+            sed -i '/^CONFIG_PACKAGE_luci-app-adguardhome=y$/a CONFIG_PACKAGE_luci-app-oxidns=y' Config/GENERAL.txt
 
           # 提交所有改动
           git add -A
