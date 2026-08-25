@@ -42,7 +42,8 @@ on:
         type: string
       WRT_TEST:
         required: false
-        type: string
+        default: false
+        type: boolean
 
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -169,14 +170,14 @@ jobs:
           make defconfig -j$(nproc) && make clean -j$(nproc)
 
       - name: Download Packages
-        if: env.WRT_TEST != 'true'
+        if: ${{ !inputs.WRT_TEST }}
         run: |
           cd ./wrt/
 
           make download -j$(nproc)
 
       - name: Compile Firmware
-        if: env.WRT_TEST != 'true'
+        if: ${{ !inputs.WRT_TEST }}
         run: |
           cd ./wrt/
 
@@ -200,7 +201,7 @@ jobs:
 
           cp -f ./.config ./upload/Config-"$WRT_CONFIG"-"$WRT_INFO"-"$WRT_BRANCH"-"$WRT_DATE".txt
 
-          if [[ $WRT_TEST != 'true' ]]; then
+          if [[ "$WRT_TEST" != 'true' ]]; then
             echo "WRT_KVER=$(find ./bin/targets/ -type f -name "*.manifest" -exec grep -oP '^kernel - \K[\d\.]+' {} \;)" >> $GITHUB_ENV
             echo "WRT_LIST=$(find ./bin/targets/ -type f -name "*.manifest" -exec grep -oP '^luci-(app|theme)[^ ]*' {} \; | tr '\n' ' ')" >> $GITHUB_ENV
 
