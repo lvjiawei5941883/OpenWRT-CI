@@ -84,6 +84,9 @@ UPDATE_PACKAGE "lucky" "gdy666/luci-app-lucky" "main"
 UPDATE_PACKAGE "adguardhome" "TanZhiwen2001/luci-app-adguardhome" "main"
 UPDATE_PACKAGE "oxidns" "svenshi/luci-app-oxidns" "main"
 
+UPDATE_PACKAGE "airpi3000m" "LianXia233/luci-app-airpi3000m-fancontrol" "main"
+UPDATE_PACKAGE "h5000m" "LianXia233/luci-app-h5000m-netmode" "main"
+
 #更新软件包版本
 UPDATE_VERSION() {
 	local PKG_NAME=$1
