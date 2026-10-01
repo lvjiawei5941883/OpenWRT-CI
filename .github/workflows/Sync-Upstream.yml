@@ -14,6 +14,10 @@ on:
 
 permissions: write-all
 
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: true
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -120,6 +124,12 @@ jobs:
             fi
           done
 
+          # ========== 9. 验证定制生效：任一断言失败立即终止，防止带残缺配置推送 ==========
+          grep -q 'CONFIG: \[IPQ60XX-WIFI-YES, IPQ60XX-WIFI-NO\]' .github/workflows/QCA-ALL.yml || { echo "QCA-ALL 矩阵定制丢失"; exit 1; }
+          grep -q 'luci-app-lucky=y' Config/GENERAL.txt || { echo "GENERAL.txt lucky 定制丢失"; exit 1; }
+          grep -q 'UPDATE_PACKAGE "lucky"' Scripts/Packages.sh || { echo "Packages.sh lucky 源丢失"; exit 1; }
+          echo "全部定制校验通过"
+
       - name: Commit & Push
         run: |
           git add -A
@@ -127,7 +137,7 @@ jobs:
             echo "无改动，跳过提交"
             exit 0
           fi
-          git commit -m "sync: 同步上游并应用定制补丁"
+          git commit -m "sync: 同步上游 $(git rev-parse --short upstream/main) 并应用定制补丁"
           # 用 PAT 推送：默认 GITHUB_TOKEN 无 workflows 权限，无法更新 .github/workflows/ 下文件
           # persist-credentials:false 已禁用 GITHUB_TOKEN 凭据注入，直接内联 PAT URL 推送
           git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/lvjiawei5941883/OpenWRT-CI.git HEAD:main
