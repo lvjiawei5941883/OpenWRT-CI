@@ -127,4 +127,6 @@ jobs:
             exit 0
           fi
           git commit -m "sync: 同步上游并应用定制补丁"
+          # 用 PAT 推送：默认 GITHUB_TOKEN 无 workflows 权限，无法更新 .github/workflows/ 下文件
+          git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
           git push origin main
