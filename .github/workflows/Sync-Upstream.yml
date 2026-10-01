@@ -1,10 +1,14 @@
-# SPDX-License-Identifier: MIT
-# 全自动同步上游 VIKINGYFY/OpenWRT-CI，merge 后精准恢复定制
+# Sync-Upstream.yml
+# 作用：将 fork 与上游 VIKINGYFY/OpenWRT-CI 同步，并在 merge -X theirs 覆盖后
+#       以"删行+追加"的固定清单模式恢复/注入老板的定制，最后推回仓库。
+# 触发：手动 workflow_dispatch，或下方 cron 定时。
+# 注意：本 workflow 只负责"同步上游+打补丁"，不编译固件；编译请再跑 QCA-ALL.yml。
 
 name: Sync-Upstream
 
 on:
   schedule:
+    # 每天 UTC 18:00（北京时间次日 02:00），可自行调整
     - cron: '0 18 * * *'
   workflow_dispatch:
 
@@ -18,7 +22,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Setup Git
         run: |
@@ -27,40 +30,23 @@ jobs:
 
       - name: Fetch Upstream
         run: |
-          git remote add upstream https://github.com/VIKINGYFY/OpenWRT-CI.git || true
+          git remote add upstream https://github.com/VIKINGYFY/OpenWRT-CI.git 2>/dev/null || true
           git fetch upstream main
 
-      - name: Check if Sync Needed
-        id: check
-        run: |
-          BEHIND=$(git rev-list --count main..upstream/main)
-          echo "behind=$BEHIND" >> $GITHUB_OUTPUT
-          if [ "$BEHIND" -eq 0 ]; then
-            echo "已是最新，无需同步"
-          else
-            echo "落后 $BEHIND 个提交，开始同步"
-          fi
-
-      - name: Merge Upstream
-        if: steps.check.outputs.behind != '0'
+      - name: Merge Upstream (覆盖式)
         run: |
           git merge upstream/main --no-edit -X theirs
 
       - name: Apply Custom Patches
         run: |
-          # ============================================================
-          # QCA-ALL.yml：只保留 IPQ60XX-WIFI-YES 编译
-          # ============================================================
-          sed -i 's/CONFIG: \[.*\]/CONFIG: [IPQ60XX-WIFI-YES]/' .github/workflows/QCA-ALL.yml
+          # ========== 1. 固定 QCA-ALL 编译矩阵：仅 IPQ60XX 的 YES / NO 两套 ==========
+          sed -i 's/CONFIG: \[.*\]/CONFIG: [IPQ60XX-WIFI-YES, IPQ60XX-WIFI-NO]/' .github/workflows/QCA-ALL.yml
 
-          # ============================================================
-          # WRT-CORE.yml：修复上游包名错误
-          # ============================================================
+          # ========== 2. WRT-CORE.yml：修复上游包名 libunistring -> libunistring-dev ==========
           grep -q 'libunistring-dev' .github/workflows/WRT-CORE.yml || \
             sed -i 's/\blibunistring\b/libunistring-dev/g' .github/workflows/WRT-CORE.yml
 
-          # WRT-CORE.yml：删除 gh cache delete 整个 if/fi 块，避免 for/done 空循环语法错误
-          # 同时保留旧缓存以利用 restore-keys 回退
+          # ========== 3. WRT-CORE.yml：删除 gh cache delete 整块（避免 for/done 空循环语法错误） ==========
           python3 << 'PYEOF'
           with open('.github/workflows/WRT-CORE.yml', 'r') as f:
               lines = f.readlines()
@@ -83,9 +69,7 @@ jobs:
           print('cache cleanup block removed')
           PYEOF
 
-          # ============================================================
-          # IPQ60XX-WIFI-YES.txt：只保留京东云2个设备
-          # ============================================================
+          # ========== 4. IPQ60XX-WIFI-YES.txt：仅京东云两台（带WIFI驱动） ==========
           cat > Config/IPQ60XX-WIFI-YES.txt << 'EOF'
           #设备平台
           CONFIG_TARGET_qualcommax=y
@@ -95,55 +79,52 @@ jobs:
           CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-ss-01=y
           EOF
 
-          # ============================================================
-          # GENERAL.txt：精准修改
-          # ============================================================
-          sed -i 's/^CONFIG_PACKAGE_luci-app-homeproxy=y/CONFIG_PACKAGE_luci-app-homeproxy=n/' Config/GENERAL.txt
-          sed -i 's/^CONFIG_PACKAGE_luci-app-gecoosac=y/CONFIG_PACKAGE_luci-app-gecoosac=n/' Config/GENERAL.txt
-          sed -i 's/^CONFIG_PACKAGE_luci-app-samba4=y/CONFIG_PACKAGE_luci-app-samba4=n/' Config/GENERAL.txt
+          # ========== 5. IPQ60XX-WIFI-NO.txt：仅京东云两台（关闭WIFI驱动） ==========
+          cat > Config/IPQ60XX-WIFI-NO.txt << 'EOF'
+          #设备平台
+          CONFIG_TARGET_qualcommax=y
+          CONFIG_TARGET_qualcommax_ipq60xx=y
+          #设备列表
+          CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-cs-02=y
+          CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-ss-01=y
+          #WIFI驱动
+          CONFIG_PACKAGE_kmod-ath=n
+          CONFIG_PACKAGE_kmod-ath11k=n
+          CONFIG_PACKAGE_kmod-ath11k-ahb=n
+          CONFIG_PACKAGE_kmod-ath11k-pci=n
+          CONFIG_PACKAGE_ath11k-firmware-ipq6018=n
+          CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n
+          CONFIG_PACKAGE_ath11k-firmware-qcn9074=n
+          CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n
+          EOF
 
-          # 幂等：已存在则跳过
-          grep -q '^CONFIG_PACKAGE_luci-app-nikki=n$' Config/GENERAL.txt || \
-            sed -i '/^CONFIG_PACKAGE_luci-app-homeproxy=n$/a CONFIG_PACKAGE_luci-app-nikki=n' Config/GENERAL.txt
-          grep -q '^CONFIG_PACKAGE_luci-app-v2raya=n$' Config/GENERAL.txt || \
-            sed -i '/^CONFIG_PACKAGE_luci-app-nikki=n$/a CONFIG_PACKAGE_luci-app-v2raya=n' Config/GENERAL.txt
-          grep -q '^CONFIG_PACKAGE_luci-app-passwall=n$' Config/GENERAL.txt || \
-            sed -i '/^CONFIG_PACKAGE_luci-app-v2raya=n$/a CONFIG_PACKAGE_luci-app-passwall=n' Config/GENERAL.txt
+          # ========== 6. GENERAL.txt：固定取消的插件（删行+追加，幂等、不依赖锚点） ==========
+          for pkg in homeproxy gecoosac samba4 nikki v2raya passwall; do
+            sed -i "/^CONFIG_PACKAGE_luci-app-$pkg=/d" Config/GENERAL.txt
+            echo "CONFIG_PACKAGE_luci-app-$pkg=n" >> Config/GENERAL.txt
+          done
 
-          if ! grep -q '^CONFIG_PACKAGE_luci-app-diskman=y$' Config/GENERAL.txt; then
-            sed -i '/^CONFIG_PACKAGE_luci-app-wolultra=y$/a CONFIG_PACKAGE_luci-app-diskman=y\nCONFIG_PACKAGE_luci-app-tailscale=y\nCONFIG_PACKAGE_luci-app-easytier=y\nCONFIG_PACKAGE_luci-app-lucky=y\nCONFIG_PACKAGE_luci-app-mosdns=n\nCONFIG_PACKAGE_luci-app-smartdns=y\nCONFIG_PACKAGE_luci-app-filemanager=y\nCONFIG_PACKAGE_luci-app-usteer=y\nCONFIG_PACKAGE_luci-app-dawn=n\nCONFIG_PACKAGE_luci-app-athena-led=y\nCONFIG_PACKAGE_luci-i18n-athena-led-zh-cn=y\nCONFIG_PACKAGE_luci-app-adguardhome=y' Config/GENERAL.txt
-          fi
+          # ========== 7. GENERAL.txt：固定增加的插件 ==========
+          for pkg in diskman tailscale easytier lucky mosdns smartdns filemanager usteer athena-led adguardhome oxidns; do
+            sed -i "/^CONFIG_PACKAGE_luci-app-$pkg=/d" Config/GENERAL.txt
+            echo "CONFIG_PACKAGE_luci-app-$pkg=y" >> Config/GENERAL.txt
+          done
 
-          if ! grep -q '^CONFIG_PACKAGE_easytier=y$' Config/GENERAL.txt; then
-            echo 'CONFIG_PACKAGE_easytier=y' >> Config/GENERAL.txt
-          fi
+          # ========== 8. Packages.sh：追加插件源（幂等，存在则跳过） ==========
+          for entry in 'lucky|gdy666/luci-app-lucky|main' 'adguardhome|TanZhiwen2001/luci-app-adguardhome|main' 'oxidns|svenshi/luci-app-oxidns|main'; do
+            name="${entry%%|*}"; rest="${entry#*|}"
+            repo="${rest%%|*}"; branch="${rest#*|}"
+            if ! grep -q "UPDATE_PACKAGE \"$name\"" Scripts/Packages.sh; then
+              echo "UPDATE_PACKAGE \"$name\" \"$repo\" \"$branch\"" >> Scripts/Packages.sh
+            fi
+          done
 
-          # ============================================================
-          # Packages.sh：追加插件
-          # ============================================================
-          if ! grep -q 'lucky' Scripts/Packages.sh; then
-            sed -i '/^UPDATE_PACKAGE "vnt"/a UPDATE_PACKAGE "lucky" "gdy666/luci-app-lucky" "main"' Scripts/Packages.sh
-          fi
-          if ! grep -q 'adguardhome' Scripts/Packages.sh; then
-            sed -i '/^UPDATE_PACKAGE "lucky"/a UPDATE_PACKAGE "adguardhome" "TanZhiwen2001/luci-app-adguardhome" "main"' Scripts/Packages.sh
-          fi
-          if ! grep -q 'oxidns' Scripts/Packages.sh; then
-            sed -i '/^UPDATE_PACKAGE "adguardhome"/a UPDATE_PACKAGE "oxidns" "svenshi/luci-app-oxidns" "main"' Scripts/Packages.sh
-          fi
-
-          # ============================================================
-          # GENERAL.txt：追加 oxidns 编译配置
-          # ============================================================
-          grep -q '^CONFIG_PACKAGE_luci-app-oxidns=y$' Config/GENERAL.txt || \
-            sed -i '/^CONFIG_PACKAGE_luci-app-adguardhome=y$/a CONFIG_PACKAGE_luci-app-oxidns=y' Config/GENERAL.txt
-
-          # 提交所有改动
-          git add -A
-          if ! git diff --cached --quiet; then
-            git commit -m "sync: 恢复老板的定制"
-          fi
-
-      - name: Push
+      - name: Commit & Push
         run: |
-          git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
-          git -c http.extraheader= push origin main
+          git add -A
+          if git diff --cached --quiet; then
+            echo "无改动，跳过提交"
+            exit 0
+          fi
+          git commit -m "sync: 同步上游并应用定制补丁"
+          git push origin main
