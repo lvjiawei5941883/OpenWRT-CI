@@ -40,7 +40,7 @@ jobs:
 
       - name: Merge Upstream (覆盖式)
         run: |
-          git merge upstream/main --no-edit -X theirs
+          git merge upstream/main --no-commit --no-edit -X theirs
 
       - name: Apply Custom Patches
         run: |
