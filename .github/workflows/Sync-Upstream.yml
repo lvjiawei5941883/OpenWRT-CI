@@ -46,6 +46,39 @@ jobs:
         run: |
           # ========== 1. 固定 QCA-ALL 编译矩阵：仅 IPQ60XX 的 YES / NO 两套 ==========
           sed -i 's/CONFIG: \[.*\]/CONFIG: [IPQ60XX-WIFI-YES, IPQ60XX-WIFI-NO]/' .github/workflows/QCA-ALL.yml
+          # ========== 1.5 QCA-ALL.yml：幂等注入独立 schedule（merge -X theirs 后兜底定时不丢失） ==========
+          python3 << 'PYEOF'
+          with open('.github/workflows/QCA-ALL.yml', 'r') as f:
+              lines = f.readlines()
+
+          # 删除已存在的 schedule 块（含其后的缩进 cron 行），实现幂等
+          out = []
+          i = 0
+          while i < len(lines):
+              if lines[i].strip() == 'schedule:':
+                  i += 1
+                  while i < len(lines) and lines[i].startswith(' ') and lines[i].strip():
+                      i += 1
+                  continue
+              out.append(lines[i])
+              i += 1
+
+          # 在 on: 后注入固定 schedule
+          final = []
+          inserted = False
+          for line in out:
+              final.append(line)
+              if not inserted and line.strip() == 'on:':
+                  final.append("  #定时兜底：每天 UTC 22:00（北京时间 06:00），防止 Auto-Clean 偶发跳过导致编译停摆\n")
+                  final.append("  schedule:\n")
+                  final.append("    - cron: '0 22 * * *'\n")
+                  inserted = True
+
+          with open('.github/workflows/QCA-ALL.yml', 'w') as f:
+              f.writelines(final)
+
+          print('QCA-ALL schedule injected')
+          PYEOF
 
           # ========== 2. WRT-CORE.yml：修复上游包名 libunistring -> libunistring-dev ==========
           grep -q 'libunistring-dev' .github/workflows/WRT-CORE.yml || \
@@ -126,6 +159,7 @@ jobs:
 
           # ========== 9. 验证定制生效：任一断言失败立即终止，防止带残缺配置推送 ==========
           grep -q 'CONFIG: \[IPQ60XX-WIFI-YES, IPQ60XX-WIFI-NO\]' .github/workflows/QCA-ALL.yml || { echo "QCA-ALL 矩阵定制丢失"; exit 1; }
+          grep -qF "cron: '0 22 * * *'" .github/workflows/QCA-ALL.yml || { echo "QCA-ALL schedule 定制丢失"; exit 1; }
           grep -q 'luci-app-lucky=y' Config/GENERAL.txt || { echo "GENERAL.txt lucky 定制丢失"; exit 1; }
           grep -q 'UPDATE_PACKAGE "lucky"' Scripts/Packages.sh || { echo "Packages.sh lucky 源丢失"; exit 1; }
           echo "全部定制校验通过"
