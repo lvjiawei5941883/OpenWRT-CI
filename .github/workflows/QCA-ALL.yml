@@ -9,23 +9,7 @@ on:
   #定时兜底：每天 UTC 22:00（北京时间 06:00），防止 Auto-Clean 偶发跳过导致编译停摆
   schedule:
     - cron: '0 22 * * *'
-  #自动编译：当Auto-Clean运行完成后
-  workflow_run:
-    workflows: ["Auto-Clean"]
-    types:
-      - completed
-  #手动编译
-  workflow_dispatch:
-    inputs:
-      PACKAGE:
-        description: '手动调整插件包，多个请用\n符号隔开。'
-        required: false
-        type: string
-      TEST:
-        description: '仅输出配置文件，不编译固件。'
-        default: false
-        required: false
-        type: boolean
+  #定时兜底：每天 UTC 22:00（北京时间 06:00），防止 Auto-Clean 偶发跳过导致编译停摆
 
 #CI权限
 permissions: write-all
