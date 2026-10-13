@@ -69,9 +69,9 @@ jobs:
           for line in out:
               final.append(line)
               if not inserted and line.strip() == 'on:':
-                  final.append("  #定时兜底：每天 UTC 22:00（北京时间 06:00），防止 Auto-Clean 偶发跳过导致编译停摆\n")
+                  final.append("  #定时兜底：每天 UTC 21:05（北京时间 05:05），防止 Auto-Clean 偶发跳过导致编译停摆；错开整点避开调度高峰\n")
                   final.append("  schedule:\n")
-                  final.append("    - cron: '0 22 * * *'\n")
+                  final.append("    - cron: '5 21 * * *'\n")
                   inserted = True
 
           with open('.github/workflows/QCA-ALL.yml', 'w') as f:
@@ -79,6 +79,30 @@ jobs:
 
           print('QCA-ALL schedule injected')
           PYEOF
+
+          # ========== 1.6 QCA-ALL.yml：幂等注入并发去重守卫（调用 DEDUP-GUARD.yml） ==========
+          python3 << 'PYEOF'
+          p = '.github/workflows/QCA-ALL.yml'
+          txt = open(p, encoding='utf-8').read()
+
+          if 'DEDUP-GUARD.yml' not in txt:
+              guard = '\n'.join([
+                  '  #并发去重守卫：同一时刻只保留一条 QCA-ALL 编译，避免 workflow_run 与 schedule 双触发双跑；手动触发豁免',
+                  '  guard:',
+                  '    uses: ./.github/workflows/DEDUP-GUARD.yml',
+                  '    with:',
+                  '      workflow_file: QCA-ALL.yml',
+                  '',
+                  '',
+              ])
+              txt = txt.replace('\njobs:\n', '\njobs:\n' + guard, 1)
+              txt = txt.replace('  config:\n', '\n  config:\n    needs: [guard]\n    if: needs.guard.outputs.skip != \'true\'\n', 1)
+              open(p, 'w', encoding='utf-8').write(txt)
+              print('QCA-ALL guard injected')
+          else:
+              print('QCA-ALL guard already present')
+          PYEOF
+
 
           # ========== 2. WRT-CORE.yml：修复上游包名 libunistring -> libunistring-dev ==========
           grep -q 'libunistring-dev' .github/workflows/WRT-CORE.yml || \
@@ -159,7 +183,8 @@ jobs:
 
           # ========== 9. 验证定制生效：任一断言失败立即终止，防止带残缺配置推送 ==========
           grep -q 'CONFIG: \[IPQ60XX-WIFI-YES, IPQ60XX-WIFI-NO\]' .github/workflows/QCA-ALL.yml || { echo "QCA-ALL 矩阵定制丢失"; exit 1; }
-          grep -qF "cron: '0 22 * * *'" .github/workflows/QCA-ALL.yml || { echo "QCA-ALL schedule 定制丢失"; exit 1; }
+          grep -qF "cron: '5 21 * * *'" .github/workflows/QCA-ALL.yml || { echo "QCA-ALL schedule 定制丢失"; exit 1; }
+          grep -q 'DEDUP-GUARD.yml' .github/workflows/QCA-ALL.yml || { echo "QCA-ALL 去重守卫丢失"; exit 1; }
           grep -q 'luci-app-lucky=y' Config/GENERAL.txt || { echo "GENERAL.txt lucky 定制丢失"; exit 1; }
           grep -q 'UPDATE_PACKAGE "lucky"' Scripts/Packages.sh || { echo "Packages.sh lucky 源丢失"; exit 1; }
           echo "全部定制校验通过"
