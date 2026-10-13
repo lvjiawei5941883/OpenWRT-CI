@@ -41,7 +41,7 @@ jobs:
           others=$(printf '%s' "$others" | tr -dc '0-9')
           echo "其他进行中的运行数: ${others:-0}"
           # 手动触发豁免去重（用户主动发起时不拦截）
-          if [ -n "$others" ] && [ "$others" -gt 0 ]; then
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ -n "$others" ] && [ "$others" -gt 0 ]; then
             skip=true
             echo "检测到同类编译已在运行，本次触发跳过（去重）"
           fi
