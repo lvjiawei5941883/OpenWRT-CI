@@ -34,26 +34,9 @@ permissions: write-all
 jobs:
   #并发去重守卫：同一时刻只保留一条 QCA-ALL 编译，避免 workflow_run 与 schedule 双触发双跑；手动触发豁免
   guard:
-    runs-on: ubuntu-latest
-    outputs:
-      skip: ${{ steps.check.outputs.skip }}
-    steps:
-      - name: 检查是否已有 QCA-ALL 在运行
-        id: check
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          skip=false
-          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
-            others=$(gh run list --workflow QCA-ALL.yml --limit 100 --json databaseId,status \
-              --jq '[.[] | select(.databaseId != (env.GITHUB_RUN_ID|tonumber)) | select(.status=="in_progress" or .status=="queued" or .status=="requested" or .status=="waiting" or .status=="pending")] | length')
-            echo "其他进行中的 QCA-ALL 运行数: $others"
-            if [ "${others}" -gt 0 ]; then
-              skip=true
-              echo "检测到已有 QCA-ALL 编译在运行，本次触发跳过（去重）"
-            fi
-          fi
-          echo "skip=${skip}" >> "$GITHUB_OUTPUT"
+    uses: ./.github/workflows/DEDUP-GUARD.yml
+    with:
+      workflow_file: QCA-ALL.yml
 
   config:
     name: ${{matrix.CONFIG}}
