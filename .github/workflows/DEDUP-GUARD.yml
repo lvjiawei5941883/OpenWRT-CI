@@ -36,14 +36,13 @@ jobs:
         continue-on-error: true
         run: |
           skip=false
-          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
-            others=$(gh run list --workflow "$WF" --limit 100 --json databaseId,status \
-              --jq '[.[] | select(.databaseId != (env.GITHUB_RUN_ID|tonumber)) | select(.status=="in_progress" or .status=="queued" or .status=="requested" or .status=="waiting" or .status=="pending")] | length' 2>/dev/null || true)
-            others=$(printf '%s' "$others" | tr -dc '0-9')
-            echo "其他进行中的运行数: ${others:-0}"
-            if [ -n "$others" ] && [ "$others" -gt 0 ]; then
-              skip=true
-              echo "检测到同类编译已在运行，本次触发跳过（去重）"
-            fi
+          others=$(gh run list --workflow "$WF" --limit 100 --json databaseId,status \
+            --jq '[.[] | select(.databaseId != (env.GITHUB_RUN_ID|tonumber)) | select(.status=="in_progress" or .status=="queued" or .status=="requested" or .status=="waiting" or .status=="pending")] | length' 2>/dev/null || true)
+          others=$(printf '%s' "$others" | tr -dc '0-9')
+          echo "其他进行中的运行数: ${others:-0}"
+          # 手动触发豁免去重（用户主动发起时不拦截）
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ -n "$others" ] && [ "$others" -gt 0 ]; then
+            skip=true
+            echo "检测到同类编译已在运行，本次触发跳过（去重）"
           fi
           echo "skip=${skip}" >> "$GITHUB_OUTPUT"
