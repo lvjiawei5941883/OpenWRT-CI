@@ -6,11 +6,7 @@ name: QCA-ALL
 
 #CI计划
 on:
-  #定时兜底：每天 UTC 21:05（北京时间 05:05），防止 Auto-Clean 偶发跳过导致编译停摆
-  #（错开整点，规避 GitHub 整点调度高峰造成的延迟/丢单）
-  schedule:
-    - cron: '5 21 * * *'
-  #自动编译：当Auto-Clean运行完成后（保留原 Auto-Clean → QCA-ALL 链路）
+  #自动编译：当Auto-Clean运行完成后
   workflow_run:
     workflows: ["Auto-Clean"]
     types:
@@ -23,7 +19,8 @@ on:
         required: false
         type: string
       TEST:
-        description: '仅输出配置文件，不编译'
+        description: '仅输出配置文件，不编译固件。'
+        default: false
         required: false
         type: boolean
 
@@ -32,16 +29,8 @@ permissions: write-all
 
 #CI任务
 jobs:
-  #并发去重守卫：同一时刻只保留一条 QCA-ALL 编译，避免 workflow_run 与 schedule 双触发双跑；手动触发豁免
-  guard:
-    uses: ./.github/workflows/DEDUP-GUARD.yml
-    with:
-      workflow_file: QCA-ALL.yml
-
   config:
     name: ${{matrix.CONFIG}}
-    needs: [guard]
-    if: always() && needs.guard.outputs.skip != 'true'
     strategy:
       fail-fast: false
       #max-parallel: 3
