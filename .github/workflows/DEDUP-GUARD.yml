@@ -33,7 +33,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           WF: ${{ inputs.workflow_file }}
         # 任何异常都不得阻塞编译：出错时视为“未检测到重复”，按正常编译放行（fail-open）
-        # 任何异常都不得阻塞编译：出错时视为“未检测到重复”，按正常编译放行（fail-open）
         continue-on-error: true
         run: |
           skip=false
