@@ -41,7 +41,7 @@ jobs:
   config:
     name: ${{matrix.CONFIG}}
     needs: [guard]
-    if: needs.guard.outputs.skip != 'true'
+    if: always() && needs.guard.outputs.skip != 'true'
     strategy:
       fail-fast: false
       #max-parallel: 3
