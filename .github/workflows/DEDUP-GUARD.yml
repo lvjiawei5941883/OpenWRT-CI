@@ -33,15 +33,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           WF: ${{ inputs.workflow_file }}
         # 任何异常都不得阻塞编译：出错时视为“未检测到重复”，按正常编译放行（fail-open）
+        # 任何异常都不得阻塞编译：出错时视为“未检测到重复”，按正常编译放行（fail-open）
         continue-on-error: true
         run: |
           skip=false
-          others=$(gh run list --workflow "$WF" --limit 100 --json databaseId,status \
-            --jq '[.[] | select(.databaseId != (env.GITHUB_RUN_ID|tonumber)) | select(.status=="in_progress" or .status=="queued" or .status=="requested" or .status=="waiting" or .status=="pending")] | length' 2>/dev/null || true)
+          others=0
+          resp=$(curl -sS -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/${WF}/runs?per_page=100" || true)
+          echo "API 响应前 120 字符: $(printf '%s' "$resp" | head -c 120)"
+          others=$(printf '%s' "$resp" | python3 -c 'import sys,json,os; d=json.load(sys.stdin); me=int(os.environ.get("GITHUB_RUN_ID","0")); print(sum(1 for r in d.get("workflow_runs",[]) if r["id"]!=me and r["status"]!="completed"))' 2>/dev/null || echo 0)
           others=$(printf '%s' "$others" | tr -dc '0-9')
           echo "其他进行中的运行数: ${others:-0}"
-          # 手动触发豁免去重（用户主动发起时不拦截）
-          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ -n "$others" ] && [ "$others" -gt 0 ]; then
+          if [ -n "$others" ] && [ "$others" -gt 0 ]; then
             skip=true
             echo "检测到同类编译已在运行，本次触发跳过（去重）"
           fi
