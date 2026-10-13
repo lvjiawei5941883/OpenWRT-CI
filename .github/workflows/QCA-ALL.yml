@@ -6,6 +6,9 @@ name: QCA-ALL
 
 #CI计划
 on:
+  #定时兜底：每天 UTC 22:00（北京时间 06:00），防止 Auto-Clean 偶发跳过导致编译停摆
+  schedule:
+    - cron: '0 22 * * *'
   #自动编译：当Auto-Clean运行完成后（保留原 Auto-Clean → QCA-ALL 链路）
   workflow_run:
     workflows: ["Auto-Clean"]
@@ -23,8 +26,6 @@ on:
         required: false
         type: boolean
   #定时兜底：每天 UTC 22:00（北京时间 06:00），防止 Auto-Clean 偶发跳过导致编译停摆
-  schedule:
-    - cron: '0 22 * * *'
 
 #CI权限
 permissions: write-all
