@@ -96,7 +96,7 @@ jobs:
                   '',
               ])
               txt = txt.replace('\njobs:\n', '\njobs:\n' + guard, 1)
-              txt = txt.replace('  config:\n', '\n  config:\n    needs: [guard]\n    if: needs.guard.outputs.skip != \'true\'\n', 1)
+              txt = txt.replace('  config:\n', '\n  config:\n    needs: [guard]\n    if: always() && needs.guard.outputs.skip != \'true\'\n', 1)
               open(p, 'w', encoding='utf-8').write(txt)
               print('QCA-ALL guard injected')
           else:
