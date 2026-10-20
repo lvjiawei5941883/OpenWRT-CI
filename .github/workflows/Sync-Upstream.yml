@@ -115,6 +115,10 @@ jobs:
             echo "CONFIG_PACKAGE_luci-app-$pkg=y" >> Config/GENERAL.txt
           done
 
+          # ========== 7b. GENERAL.txt：smartdns 官方 WebUI 子包（非 luci-app-* 命名，单独处理） ==========
+          sed -i "/^CONFIG_PACKAGE_smartdns-ui=/d" Config/GENERAL.txt
+          echo "CONFIG_PACKAGE_smartdns-ui=y" >> Config/GENERAL.txt
+
           # ========== 8. Packages.sh：追加插件源（幂等，存在则跳过） ==========
           for entry in 'lucky|gdy666/luci-app-lucky|main' 'adguardhome|TanZhiwen2001/luci-app-adguardhome|main' 'oxidns|svenshi/luci-app-oxidns|main'; do
             name="${entry%%|*}"; rest="${entry#*|}"
@@ -128,6 +132,7 @@ jobs:
           grep -q 'CONFIG: \[IPQ60XX-WIFI-YES, IPQ60XX-WIFI-NO\]' .github/workflows/QCA-ALL.yml || { echo "QCA-ALL 矩阵定制丢失"; exit 1; }
           grep -q 'luci-app-lucky=y' Config/GENERAL.txt || { echo "GENERAL.txt lucky 定制丢失"; exit 1; }
           grep -q 'UPDATE_PACKAGE "lucky"' Scripts/Packages.sh || { echo "Packages.sh lucky 源丢失"; exit 1; }
+          grep -q 'CONFIG_PACKAGE_smartdns-ui=y' Config/GENERAL.txt || { echo "GENERAL.txt smartdns-ui 定制丢失"; exit 1; }
           echo "全部定制校验通过"
 
       - name: Commit & Push
