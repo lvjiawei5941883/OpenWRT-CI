@@ -178,7 +178,7 @@ jobs:
 
           $GITHUB_WORKSPACE/Scripts/Packages.sh
           $GITHUB_WORKSPACE/Scripts/Handles.sh
-          "$GITHUB_WORKSPACE/.github/scripts/prepare-i2c-tools.sh"
+          $GITHUB_WORKSPACE/.github/scripts/prepare-i2c-tools.sh
 
       - name: Custom Settings
         run: |
@@ -191,8 +191,7 @@ jobs:
           fi
 
           $GITHUB_WORKSPACE/Scripts/Settings.sh
-
-          "$GITHUB_WORKSPACE/.github/scripts/prepare-build-host.sh"
+          $GITHUB_WORKSPACE/.github/scripts/prepare-build-host.sh
 
           make defconfig -j$(nproc) && make clean -j$(nproc)
 
@@ -201,7 +200,7 @@ jobs:
         run: |
           cd ./wrt/
 
-          "$GITHUB_WORKSPACE/.github/scripts/prepare-rust.sh"
+          $GITHUB_WORKSPACE/.github/scripts/prepare-rust.sh
 
       - name: Download Packages
         if: ${{ !inputs.WRT_TEST }}
@@ -215,7 +214,7 @@ jobs:
         run: |
           cd ./wrt/
 
-          mkdir -p "$GITHUB_WORKSPACE/build-reports"
+          mkdir -p $GITHUB_WORKSPACE/build-reports
           make -j$(nproc) BUILD_TIME_LOG="$GITHUB_WORKSPACE/build-reports/parallel.tsv" || \
             make -j1 V=s BUILD_TIME_LOG="$GITHUB_WORKSPACE/build-reports/serial.tsv"
 
@@ -223,10 +222,9 @@ jobs:
         if: ${{ !inputs.WRT_TEST && always() }}
         continue-on-error: true
         run: |
-          if [ -d ./wrt/.git ]; then
-            cd ./wrt/
-            "$GITHUB_WORKSPACE/.github/scripts/collect-build-reports.sh"
-          fi
+          cd ./wrt/
+
+          $GITHUB_WORKSPACE/.github/scripts/collect-build-reports.sh
 
       - name: Upload Build Reports
         if: ${{ !inputs.WRT_TEST && always() }}
