@@ -178,6 +178,7 @@ jobs:
 
           $GITHUB_WORKSPACE/Scripts/Packages.sh
           $GITHUB_WORKSPACE/Scripts/Handles.sh
+          "$GITHUB_WORKSPACE/.github/scripts/prepare-i2c-tools.sh"
 
       - name: Custom Settings
         run: |
@@ -191,6 +192,8 @@ jobs:
 
           $GITHUB_WORKSPACE/Scripts/Settings.sh
 
+          "$GITHUB_WORKSPACE/.github/scripts/prepare-build-host.sh"
+
           make defconfig -j$(nproc) && make clean -j$(nproc)
 
       - name: Prepare Rust Toolchain
@@ -198,7 +201,7 @@ jobs:
         run: |
           cd ./wrt/
 
-          bash "$GITHUB_WORKSPACE/.github/scripts/prepare-rust.sh"
+          "$GITHUB_WORKSPACE/.github/scripts/prepare-rust.sh"
 
       - name: Download Packages
         if: ${{ !inputs.WRT_TEST }}
@@ -218,14 +221,16 @@ jobs:
 
       - name: Collect Build Reports
         if: ${{ !inputs.WRT_TEST && always() }}
+        continue-on-error: true
         run: |
           if [ -d ./wrt/.git ]; then
             cd ./wrt/
-            bash "$GITHUB_WORKSPACE/.github/scripts/collect-build-reports.sh"
+            "$GITHUB_WORKSPACE/.github/scripts/collect-build-reports.sh"
           fi
 
       - name: Upload Build Reports
         if: ${{ !inputs.WRT_TEST && always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: build-reports-${{env.WRT_CONFIG}}-${{env.WRT_INFO}}-${{github.run_attempt}}
