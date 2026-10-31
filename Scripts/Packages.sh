@@ -66,10 +66,6 @@ UPDATE_PACKAGE "diskmanager" "4IceG/luci-app-mini-diskmanager" "main"
 UPDATE_PACKAGE "easytier" "EasyTier/luci-app-easytier" "main"
 UPDATE_PACKAGE "qmodem" "FUjr/QModem" "main"
 UPDATE_PACKAGE "viking" "VIKINGYFY/packages" "main" "" "axonhub gecoosac miniupnpd sing-box luci-app-homeproxy luci-app-timewol luci-app-upnp luci-app-wolplus luci-app-wolultra"
-UPDATE_PACKAGE "vnt" "lmq8267/luci-app-vnt" "main"
-UPDATE_PACKAGE "lucky" "gdy666/luci-app-lucky" "main"
-UPDATE_PACKAGE "adguardhome" "TanZhiwen2001/luci-app-adguardhome" "main"
-UPDATE_PACKAGE "oxidns" "svenshi/luci-app-oxidns" "main"
 
 UPDATE_PACKAGE "diskman" "sbwml/luci-app-diskman" "main"
 UPDATE_PACKAGE "mosdns" "sbwml/luci-app-mosdns" "v5" "" "v2dat"
@@ -144,3 +140,6 @@ UPDATE_VERSION() {
 if [ -f "$GITHUB_WORKSPACE/Scripts/PRIVATE.sh" ]; then
 	source "$GITHUB_WORKSPACE/Scripts/PRIVATE.sh"
 fi
+UPDATE_PACKAGE "lucky" "gdy666/luci-app-lucky" "main"
+UPDATE_PACKAGE "adguardhome" "TanZhiwen2001/luci-app-adguardhome" "main"
+UPDATE_PACKAGE "oxidns" "svenshi/luci-app-oxidns" "main"
