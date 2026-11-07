@@ -34,7 +34,18 @@ export PATH
 RUST_TOOLCHAIN=$(rustup show active-toolchain | awk '{print $1}')
 printf 'Rust toolchain: %s\nRust target: %s\n' "$RUST_TOOLCHAIN" "$RUST_TARGET" | tee "$REPORT_DIR/rust-toolchain.txt"
 
-rustup target add --toolchain "$RUST_TOOLCHAIN" "$RUST_TARGET"
+# rustup 自身没有超时：网络抖动时会静默挂死，直到 job 级上限被杀
+for attempt in 1 2 3; do
+	if timeout 300 rustup target add --toolchain "$RUST_TOOLCHAIN" "$RUST_TARGET"; then
+		break
+	fi
+	if [ "$attempt" -eq 3 ]; then
+		echo "rustup target add failed after 3 attempts" >&2
+		exit 1
+	fi
+	echo "rustup target add timeout/failed (attempt $attempt), retrying in 10s" >&2
+	sleep 10
+done
 RUST_ROOT=$(rustup run "$RUST_TOOLCHAIN" rustc --print sysroot)
 test -d "$RUST_ROOT/lib/rustlib/$RUST_TARGET/lib"
 for tool in cargo rustc rustdoc; do
