@@ -110,9 +110,23 @@ jobs:
           done
 
           # ========== 7. GENERAL.txt：固定增加的插件 ==========
-          for pkg in diskman tailscale easytier lucky mosdns smartdns filemanager usteer athena-led adguardhome oxidns; do
+          for pkg in diskman tailscale easytier lucky mosdns smartdns filemanager usteer athena-led oxidns; do
             sed -i "/^CONFIG_PACKAGE_luci-app-$pkg=/d" Config/GENERAL.txt
             echo "CONFIG_PACKAGE_luci-app-$pkg=y" >> Config/GENERAL.txt
+          done
+
+          # ========== 7a. GENERAL.txt：AdGuard Home 换成 lite 版 ==========
+          # 旧版 luci-app-adguardhome 上游停更，与 LuCI 26.x 的菜单/dispatcher 已脱节。
+          # lite 的 Makefile 声明 CONFLICTS:=luci-app-adguardhome，两包必须一 y 一 n，否则编译期直接冲突。
+          sed -i "/^CONFIG_PACKAGE_luci-app-adguardhome=/d" Config/GENERAL.txt
+          echo "CONFIG_PACKAGE_luci-app-adguardhome=n" >> Config/GENERAL.txt
+          sed -i "/^CONFIG_PACKAGE_luci-app-adguardhome-lite=/d" Config/GENERAL.txt
+          echo "CONFIG_PACKAGE_luci-app-adguardhome-lite=y" >> Config/GENERAL.txt
+          # lite 是 Lua 式 LuCI 插件（luci.mk + luasrc/view），依赖与作者 install.sh 的 apk 清单一致；
+          # curl / wget-ssl 由 Makefile 的 LUCI_DEPENDS 自动带入，这里只补 LuCI 侧运行时。
+          for pkg in luci-compat luci-lua-runtime luci-lib-jsonc ca-bundle; do
+            sed -i "/^CONFIG_PACKAGE_$pkg=/d" Config/GENERAL.txt
+            echo "CONFIG_PACKAGE_$pkg=y" >> Config/GENERAL.txt
           done
 
           # ========== 7b. GENERAL.txt：确保 smartdns-ui 不参与编译 ==========
@@ -122,13 +136,36 @@ jobs:
           sed -i "/^CONFIG_PACKAGE_smartdns-ui=/d" Config/GENERAL.txt
 
           # ========== 8. Packages.sh：追加插件源（幂等，存在则跳过） ==========
-          for entry in 'lucky|gdy666/luci-app-lucky|main' 'adguardhome|TanZhiwen2001/luci-app-adguardhome|main' 'oxidns|svenshi/luci-app-oxidns|main'; do
+          for entry in 'lucky|gdy666/luci-app-lucky|main' 'oxidns|svenshi/luci-app-oxidns|main'; do
             name="${entry%%|*}"; rest="${entry#*|}"
             repo="${rest%%|*}"; branch="${rest#*|}"
             if ! grep -q "UPDATE_PACKAGE \"$name\"" Scripts/Packages.sh; then
               echo "UPDATE_PACKAGE \"$name\" \"$repo\" \"$branch\"" >> Scripts/Packages.sh
             fi
           done
+
+          # ========== 8a. Packages.sh：AdGuard Home lite 源（源码在仓库 src/ 子目录） ==========
+          # 不能套 UPDATE_PACKAGE 的 pkg 分支：该仓库名与包名同为 luci-app-adguardhome-lite，
+          # 分支逻辑会先 clone 到 ./package/luci-app-adguardhome-lite，再把提取目录 cp 进去、
+          # 最后 rm -rf 整个路径，等于把自己删掉。故单独克隆后提取，用标记块保证幂等。
+          python3 << 'PYEOF'
+          import re
+          p = 'Scripts/Packages.sh'
+          s = open(p, encoding='utf-8').read()
+          s = re.sub(r'\n# >>> agh-lite BEGIN.*?# <<< agh-lite END\n', '\n', s, flags=re.S)
+          s = re.sub(r'^UPDATE_PACKAGE "adguardhome".*\n', '', s, flags=re.M)
+          block = '''
+          # >>> agh-lite BEGIN
+          #AdGuard Home 管理中心（lite）：源码在仓库 src/ 下，需提取后拷入 package/
+          rm -rf ./package/luci-app-adguardhome ./package/luci-app-adguardhome-lite
+          for d in $(find ./feeds/luci/ ./feeds/packages/ -maxdepth 3 -type d -iname "*adguardhome*" 2>/dev/null); do rm -rf "$d"; done
+          git clone --depth=1 --single-branch --branch main https://github.com/Ozero-top/luci-app-adguardhome-lite.git /tmp/agh-lite
+          cp -rf /tmp/agh-lite/src/luci-app-adguardhome-lite ./package/ && rm -rf /tmp/agh-lite
+          # <<< agh-lite END
+          '''
+          open(p, 'w', encoding='utf-8').write(s.rstrip() + '\n' + block)
+          print('agh-lite source injected')
+          PYEOF
 
           # ========== 10. WRT-CORE.yml / prepare-rust.sh：构建调优补丁 ==========
           # dl 缓存、job 与 rustup 超时是上游文件内部的定制，统一交给幂等脚本注入，
@@ -143,6 +180,11 @@ jobs:
           grep -q './wrt/dl' .github/workflows/WRT-CORE.yml || { echo "WRT-CORE dl 缓存定制丢失"; exit 1; }
           grep -q 'timeout-minutes: 240' .github/workflows/WRT-CORE.yml || { echo "WRT-CORE core job 超时定制丢失"; exit 1; }
           grep -q 'timeout 300 rustup target add' .github/scripts/prepare-rust.sh || { echo "prepare-rust 超时定制丢失"; exit 1; }
+          grep -q 'CONFIG_PACKAGE_luci-app-adguardhome-lite=y' Config/GENERAL.txt || { echo "GENERAL.txt adguardhome-lite 未启用"; exit 1; }
+          grep -q 'CONFIG_PACKAGE_luci-app-adguardhome=n' Config/GENERAL.txt || { echo "旧版 adguardhome 未禁用，会与 lite 冲突"; exit 1; }
+          grep -q 'Ozero-top/luci-app-adguardhome-lite' Scripts/Packages.sh || { echo "Packages.sh agh-lite 源丢失"; exit 1; }
+          grep -q 'agh-lite BEGIN' Scripts/Packages.sh || { echo "Packages.sh agh-lite 标记块丢失"; exit 1; }
+          ! grep -q 'UPDATE_PACKAGE "adguardhome"' Scripts/Packages.sh || { echo "旧版 adguardhome 源仍在"; exit 1; }
           echo "全部定制校验通过"
 
       - name: Commit & Push
