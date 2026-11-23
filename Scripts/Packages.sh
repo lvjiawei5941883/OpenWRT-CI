@@ -141,5 +141,12 @@ if [ -f "$GITHUB_WORKSPACE/Scripts/PRIVATE.sh" ]; then
 	source "$GITHUB_WORKSPACE/Scripts/PRIVATE.sh"
 fi
 UPDATE_PACKAGE "lucky" "gdy666/luci-app-lucky" "main"
-UPDATE_PACKAGE "adguardhome" "TanZhiwen2001/luci-app-adguardhome" "main"
 UPDATE_PACKAGE "oxidns" "svenshi/luci-app-oxidns" "main"
+
+# >>> agh-lite BEGIN
+#AdGuard Home 管理中心（lite）：源码在仓库 src/ 下，需提取后拷入 package/
+rm -rf ./package/luci-app-adguardhome ./package/luci-app-adguardhome-lite
+for d in $(find ./feeds/luci/ ./feeds/packages/ -maxdepth 3 -type d -iname "*adguardhome*" 2>/dev/null); do rm -rf "$d"; done
+git clone --depth=1 --single-branch --branch main https://github.com/Ozero-top/luci-app-adguardhome-lite.git /tmp/agh-lite
+cp -rf /tmp/agh-lite/src/luci-app-adguardhome-lite ./package/ && rm -rf /tmp/agh-lite
+# <<< agh-lite END
