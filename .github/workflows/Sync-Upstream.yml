@@ -8,8 +8,7 @@ name: Sync-Upstream
 
 on:
   schedule:
-    # 每天 UTC 18:00（北京时间次日 02:00），可自行调整
-    - cron: '0 18 * * *'
+    - cron: '0 23 * * *'      # UTC 23:00 = 北京时间次日 07:00
   workflow_dispatch:
 
 permissions: write-all
