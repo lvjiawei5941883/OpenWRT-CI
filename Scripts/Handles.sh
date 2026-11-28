@@ -5,17 +5,6 @@
 FEEDS_PATH="./feeds"
 PACKAGE_PATH="./package"
 
-# Avoid linking against TPM2 libraries staged by another package.
-GNUTLS_MAKEFILE="$FEEDS_PATH/packages/libs/gnutls/Makefile"
-if [ -f "$PACKAGE_PATH/libs/tpm2-tss/Makefile" ] && [ -f "$GNUTLS_MAKEFILE" ] &&
-	! grep -Eq -- '^[[:blank:]]*([^#[:blank:]].*[[:blank:]])?--(with|without)-tpm2([=[:blank:]]|$)' "$GNUTLS_MAKEFILE"; then
-	if ! sed -i '/^include $(INCLUDE_DIR)\/package\.mk$/a CONFIGURE_ARGS += --without-tpm2' "$GNUTLS_MAKEFILE" ||
-		! grep -Fxq 'CONFIGURE_ARGS += --without-tpm2' "$GNUTLS_MAKEFILE"; then
-		echo "Unable to disable GnuTLS TPM2 auto-detection in $GNUTLS_MAKEFILE" >&2
-		exit 1
-	fi
-fi
-
 #修补命令统一入口：FIX <名称> <守卫目录> <命令...>
 #守卫目录不存在时直接跳过，保证在 bash -e 下不中断
 FIX() {
@@ -32,6 +21,21 @@ FIX() {
 		echo "$NAME fix failed; continuing!"
 	fi
 }
+
+#关闭GnuTLS的TPM2自动探测，避免引入未声明的TSS2依赖
+DISABLE_GNUTLS_TPM2() {
+	local MAKEFILE=$1
+
+	sed -i '/^include $(INCLUDE_DIR)\/package\.mk$/a CONFIGURE_ARGS += --without-tpm2' "$MAKEFILE" &&
+		grep -Fxq 'CONFIGURE_ARGS += --without-tpm2' "$MAKEFILE"
+}
+
+GNUTLS_PATH="$FEEDS_PATH/packages/libs/gnutls"
+GNUTLS_MAKEFILE="$GNUTLS_PATH/Makefile"
+if [ -f "$PACKAGE_PATH/libs/tpm2-tss/Makefile" ] && [ -f "$GNUTLS_MAKEFILE" ] &&
+	! grep -Eq -- '^[[:blank:]]*([^#[:blank:]].*[[:blank:]])?--(with|without)-tpm2([=[:blank:]]|$)' "$GNUTLS_MAKEFILE"; then
+	FIX "gnutls" "$GNUTLS_PATH" DISABLE_GNUTLS_TPM2 "$GNUTLS_MAKEFILE"
+fi
 
 #修改argon主题字体和颜色
 FIX "theme-argon" "$PACKAGE_PATH/luci-theme-argon" sed -i \
